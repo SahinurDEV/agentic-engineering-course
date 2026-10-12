@@ -1,0 +1,116 @@
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 08f45b4..86f173c 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -2,11 +2,13 @@
+ 
+ namespace App\Models;
+ 
++use App\Enums\Role;
+ use Database\Factories\UserFactory;
+ use Illuminate\Contracts\Auth\MustVerifyEmail;
+ use Illuminate\Database\Eloquent\Attributes\Fillable;
+ use Illuminate\Database\Eloquent\Attributes\Hidden;
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Relations\HasMany;
+ use Illuminate\Foundation\Auth\User as Authenticatable;
+ use Illuminate\Notifications\Notifiable;
+ use Illuminate\Support\Carbon;
+@@ -20,6 +22,7 @@
+  * @property string $email
+  * @property Carbon|null $email_verified_at
+  * @property string $password
++ * @property Role $role
+  * @property string|null $two_factor_secret
+  * @property string|null $two_factor_recovery_codes
+  * @property Carbon|null $two_factor_confirmed_at
+@@ -34,6 +37,15 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
+     /** @use HasFactory<UserFactory> */
+     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+ 
++    /**
++     * New sign-ups are customers. Role is not fillable, so a request can't set it.
++     *
++     * @var array<string, mixed>
++     */
++    protected $attributes = [
++        'role' => 'customer',
++    ];
++
+     /**
+      * Get the attributes that should be cast.
+      *
+@@ -45,6 +57,36 @@ protected function casts(): array
+             'email_verified_at' => 'datetime',
+             'password' => 'hashed',
+             'two_factor_confirmed_at' => 'datetime',
++            'role' => Role::class,
+         ];
+     }
++
++    /**
++     * Agents and admins work on tickets. An admin is an agent with extra rights.
++     */
++    public function isAgent(): bool
++    {
++        return in_array($this->role, [Role::Agent, Role::Admin], true);
++    }
++
++    public function isAdmin(): bool
++    {
++        return $this->role === Role::Admin;
++    }
++
++    /**
++     * @return HasMany<Ticket, $this>
++     */
++    public function tickets(): HasMany
++    {
++        return $this->hasMany(Ticket::class, 'customer_id');
++    }
++
++    /**
++     * @return HasMany<Ticket, $this>
++     */
++    public function assignedTickets(): HasMany
++    {
++        return $this->hasMany(Ticket::class, 'assignee_id');
++    }
+ }
+diff --git a/database/factories/UserFactory.php b/database/factories/UserFactory.php
+index 98825c8..43ffc3f 100644
+--- a/database/factories/UserFactory.php
++++ b/database/factories/UserFactory.php
+@@ -46,6 +46,20 @@ public function unverified(): static
+         ]);
+     }
+ 
++    public function agent(): static
++    {
++        return $this->state(fn (array $attributes) => [
++            'role' => 'agent',
++        ]);
++    }
++
++    public function admin(): static
++    {
++        return $this->state(fn (array $attributes) => [
++            'role' => 'admin',
++        ]);
++    }
++
+     /**
+      * Indicate that the model has two-factor authentication configured.
+      */
+diff --git a/database/seeders/DatabaseSeeder.php b/database/seeders/DatabaseSeeder.php
+index 6b901f8..85c93e3 100644
+--- a/database/seeders/DatabaseSeeder.php
++++ b/database/seeders/DatabaseSeeder.php
+@@ -21,5 +21,7 @@ public function run(): void
+             'name' => 'Test User',
+             'email' => 'test@example.com',
+         ]);
++
++        $this->call(AdminSeeder::class);
+     }
+ }

@@ -1,0 +1,21 @@
+diff --git a/app/Providers/AppServiceProvider.php b/app/Providers/AppServiceProvider.php
+index f1525e9..d492fc8 100644
+--- a/app/Providers/AppServiceProvider.php
++++ b/app/Providers/AppServiceProvider.php
+@@ -3,6 +3,7 @@
+ namespace App\Providers;
+ 
+ use Carbon\CarbonImmutable;
++use Illuminate\Database\Eloquent\Model;
+ use Illuminate\Support\Facades\Date;
+ use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\ServiceProvider;
+@@ -33,6 +34,8 @@ protected function configureDefaults(): void
+     {
+         Date::use(CarbonImmutable::class);
+ 
++        Model::preventLazyLoading(! app()->isProduction());
++
+         DB::prohibitDestructiveCommands(
+             app()->isProduction(),
+         );

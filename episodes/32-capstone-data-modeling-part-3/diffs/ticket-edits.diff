@@ -1,0 +1,124 @@
+diff --git a/app/Models/Ticket.php b/app/Models/Ticket.php
+index 5958135..2605e24 100644
+--- a/app/Models/Ticket.php
++++ b/app/Models/Ticket.php
+@@ -6,10 +6,13 @@
+ use App\Enums\TicketStatus;
+ use Database\Factories\TicketFactory;
+ use Illuminate\Database\Eloquent\Attributes\Fillable;
++use Illuminate\Database\Eloquent\Attributes\Scope;
++use Illuminate\Database\Eloquent\Builder;
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
+ use Illuminate\Database\Eloquent\Relations\BelongsTo;
+ use Illuminate\Database\Eloquent\Relations\HasMany;
++use Illuminate\Support\Facades\DB;
+ use InvalidArgumentException;
+ 
+ /**
+@@ -36,6 +39,15 @@ class Ticket extends Model
+         'priority' => 'normal',
+     ];
+ 
++    /**
++     * Columns whose changes are logged (R11), and their name in the log.
++     */
++    private const LOGGED = [
++        'status' => 'status',
++        'priority' => 'priority',
++        'assignee_id' => 'assignee',
++    ];
++
+     protected function casts(): array
+     {
+         return [
+@@ -111,4 +123,89 @@ public function addNote(User $author, string $body): InternalNote
+ 
+         return $note;
+     }
++
++    /**
++     * The change log, oldest first.
++     *
++     * @return HasMany<TicketChange, $this>
++     */
++    public function history(): HasMany
++    {
++        return $this->hasMany(TicketChange::class)->orderBy('id');
++    }
++
++    public function changeStatus(User $by, TicketStatus $status): void
++    {
++        $this->status = $status;
++        $this->saveAndLog($by);
++    }
++
++    public function changePriority(User $by, TicketPriority $priority): void
++    {
++        $this->priority = $priority;
++        $this->saveAndLog($by);
++    }
++
++    public function assignTo(User $by, ?User $agent): void
++    {
++        if ($agent !== null && ! $agent->isAgent()) {
++            throw new InvalidArgumentException('Only agents can be assigned.');
++        }
++
++        $this->assignee()->associate($agent);
++        $this->saveAndLog($by);
++    }
++
++    /**
++     * Tickets with all these words in the subject or in a reply (R6).
++     * Internal notes are not searched.
++     *
++     * @param  Builder<Ticket>  $query
++     */
++    #[Scope]
++    protected function search(Builder $query, string $words): void
++    {
++        $query->whereIn('id', Ticket::query()
++            ->select('id')
++            ->whereFullText('subject', $words, ['language' => 'english'])
++            ->union(Reply::query()
++                ->select('ticket_id')
++                ->whereFullText('body', $words, ['language' => 'english'])));
++    }
++
++    /**
++     * Save the ticket and log each changed column, together or not at all.
++     */
++    private function saveAndLog(User $by): void
++    {
++        $changes = [];
++
++        foreach (self::LOGGED as $column => $field) {
++            if ($this->isDirty($column)) {
++                $changes[] = new TicketChange([
++                    'field' => $field,
++                    'old_value' => self::asText($this->getRawOriginal($column)),
++                    'new_value' => self::asText($this->getAttributes()[$column]),
++                ]);
++            }
++        }
++
++        if ($changes === []) {
++            return;
++        }
++
++        DB::transaction(function () use ($by, $changes) {
++            $this->save();
++
++            foreach ($changes as $change) {
++                $change->user()->associate($by);
++                $this->history()->save($change);
++            }
++        });
++    }
++
++    private static function asText(mixed $value): ?string
++    {
++        return $value === null ? null : (string) $value;
++    }
+ }

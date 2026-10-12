@@ -1,0 +1,142 @@
+diff --git a/app/Http/Middleware/HandleInertiaRequests.php b/app/Http/Middleware/HandleInertiaRequests.php
+index 8a53d36..a8f1faf 100644
+--- a/app/Http/Middleware/HandleInertiaRequests.php
++++ b/app/Http/Middleware/HandleInertiaRequests.php
+@@ -2,7 +2,9 @@
+ 
+ namespace App\Http\Middleware;
+ 
++use App\Models\Category;
+ use App\Models\Ticket;
++use App\Models\User;
+ use Illuminate\Http\Request;
+ use Inertia\Middleware;
+ 
+@@ -44,6 +46,8 @@ public function share(Request $request): array
+                 'can' => [
+                     'openTicket' => (bool) $request->user()?->can('create', Ticket::class),
+                     'viewInbox' => (bool) $request->user()?->can('viewAny', Ticket::class),
++                    'manageCategories' => (bool) $request->user()?->can('viewAny', Category::class),
++                    'manageUsers' => (bool) $request->user()?->can('viewAny', User::class),
+                 ],
+             ],
+             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+diff --git a/app/Http/Requests/StoreTicketRequest.php b/app/Http/Requests/StoreTicketRequest.php
+index 9a271c1..e3d7fa9 100644
+--- a/app/Http/Requests/StoreTicketRequest.php
++++ b/app/Http/Requests/StoreTicketRequest.php
+@@ -4,6 +4,7 @@
+ 
+ use Illuminate\Contracts\Validation\ValidationRule;
+ use Illuminate\Foundation\Http\FormRequest;
++use Illuminate\Validation\Rule;
+ 
+ class StoreTicketRequest extends FormRequest
+ {
+@@ -23,7 +24,11 @@ public function rules(): array
+         return [
+             'subject' => ['required', 'string', 'max:255'],
+             'description' => ['required', 'string', 'max:10000'],
+-            'category_id' => ['required', 'integer', 'exists:categories,id'],
++            'category_id' => [
++                'required',
++                'integer',
++                Rule::exists('categories', 'id')->whereNull('archived_at'),
++            ],
+         ];
+     }
+ }
+diff --git a/app/Models/Category.php b/app/Models/Category.php
+index f18ae12..f02837e 100644
+--- a/app/Models/Category.php
++++ b/app/Models/Category.php
+@@ -2,17 +2,20 @@
+ 
+ namespace App\Models;
+ 
++use Carbon\CarbonImmutable;
+ use Database\Factories\CategoryFactory;
+ use Illuminate\Database\Eloquent\Attributes\Fillable;
++use Illuminate\Database\Eloquent\Attributes\Scope;
++use Illuminate\Database\Eloquent\Builder;
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
+ use Illuminate\Database\Eloquent\Relations\HasMany;
+-use Illuminate\Support\Carbon;
+ 
+ /**
+  * @property int $id
+  * @property string $name
+- * @property Carbon|null $archived_at
++ * @property CarbonImmutable|null $archived_at
++ * @property int|null $tickets_count
+  */
+ #[Fillable(['name'])]
+ class Category extends Model
+@@ -27,6 +30,26 @@ protected function casts(): array
+         ];
+     }
+ 
++    /**
++     * Categories that new tickets can pick (R12).
++     *
++     * @param  Builder<Category>  $query
++     */
++    #[Scope]
++    protected function active(Builder $query): void
++    {
++        $query->whereNull('archived_at');
++    }
++
++    /**
++     * Archived categories can't be picked for new tickets; existing tickets keep them.
++     */
++    public function archive(): void
++    {
++        $this->archived_at ??= now();
++        $this->save();
++    }
++
+     /**
+      * @return HasMany<Ticket, $this>
+      */
+diff --git a/app/Models/Ticket.php b/app/Models/Ticket.php
+index 01e50b6..5d2ff9f 100644
+--- a/app/Models/Ticket.php
++++ b/app/Models/Ticket.php
+@@ -5,6 +5,7 @@
+ use App\Enums\TicketPriority;
+ use App\Enums\TicketStatus;
+ use Database\Factories\TicketFactory;
++use DomainException;
+ use Illuminate\Database\Eloquent\Attributes\Fillable;
+ use Illuminate\Database\Eloquent\Attributes\Scope;
+ use Illuminate\Database\Eloquent\Builder;
+@@ -111,6 +112,27 @@ public function addReply(User $author, string $body): Reply
+         return $reply;
+     }
+ 
++    /**
++     * A public reply with the R10 rules: closed tickets take no replies, and a
++     * customer reply on a pending or resolved ticket sets it to open (logged).
++     */
++    public function respond(User $author, string $body): Reply
++    {
++        if ($this->status === TicketStatus::Closed) {
++            throw new DomainException('Closed tickets take no replies.');
++        }
++
++        return DB::transaction(function () use ($author, $body) {
++            $reply = $this->addReply($author, $body);
++
++            if (! $author->isAgent() && in_array($this->status, [TicketStatus::Pending, TicketStatus::Resolved], true)) {
++                $this->changeStatus($author, TicketStatus::Open);
++            }
++
++            return $reply;
++        });
++    }
++
+     public function addNote(User $author, string $body): InternalNote
+     {
+         if (! $author->isAgent()) {

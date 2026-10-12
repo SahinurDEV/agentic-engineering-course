@@ -1,0 +1,33 @@
+diff --git a/routes/web.php b/routes/web.php
+index 2085b21..da7ee87 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,11 +1,28 @@
+ <?php
+ 
++use App\Http\Controllers\InboxController;
++use App\Http\Controllers\ReplyController;
++use App\Http\Controllers\TicketController;
++use App\Models\Ticket;
+ use Illuminate\Support\Facades\Route;
+ 
+ Route::inertia('/', 'welcome')->name('home');
+ 
+ Route::middleware(['auth', 'verified'])->group(function () {
+     Route::inertia('dashboard', 'dashboard')->name('dashboard');
++
++    Route::get('tickets', [TicketController::class, 'index'])->name('tickets.index');
++    Route::get('tickets/create', [TicketController::class, 'create'])
++        ->can('create', Ticket::class)->name('tickets.create');
++    Route::post('tickets', [TicketController::class, 'store'])
++        ->can('create', Ticket::class)->name('tickets.store');
++    Route::get('tickets/{ticket}', [TicketController::class, 'show'])
++        ->can('view', 'ticket')->name('tickets.show');
++    Route::post('tickets/{ticket}/replies', [ReplyController::class, 'store'])
++        ->can('reply', 'ticket')->name('tickets.replies.store');
++
++    Route::get('inbox', InboxController::class)
++        ->can('viewAny', Ticket::class)->name('inbox');
+ });
+ 
+ require __DIR__.'/settings.php';

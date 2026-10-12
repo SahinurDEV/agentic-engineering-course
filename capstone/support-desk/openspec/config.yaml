@@ -1,0 +1,15 @@
+schema: spec-driven
+
+context: |
+  Requirements live in docs/requirements.md, numbered R1 to R12 and Q1 to Q5.
+  Every change traces back to those numbers.
+
+rules:
+  proposal:
+    - Name the R numbers this change covers
+    - Always state what is out of scope
+  specs:
+    - Every requirement needs at least one scenario
+    - Add a scenario for each role that must be refused
+  tasks:
+    - Include a task to run php artisan test

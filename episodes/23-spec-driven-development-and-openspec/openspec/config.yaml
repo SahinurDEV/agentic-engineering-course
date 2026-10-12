@@ -1,0 +1,20 @@
+schema: spec-driven
+
+context: |
+  Small Node.js cart project. Discount logic lives in src/discounts.js, cart totals in src/cart.js.
+  Tests use node --test and run with npm test.
+  No new dependencies without asking first.
+
+rules:
+  proposal:
+    - Always state what is out of scope
+  specs:
+    - Every requirement needs at least one scenario
+    - Cover the edge cases, like totals near zero and dates on the boundary
+  tasks:
+    - Include a task to run npm test
+
+operations:
+  apply:
+    guidance:
+      - Run npm test after each task group

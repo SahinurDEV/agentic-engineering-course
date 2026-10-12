@@ -1,0 +1,34 @@
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+vendor/
+public/build/
+public/hot
+dist/
+*.log
+.phpunit.cache/
+.phpunit.result.cache
+__pycache__/
+
+# Media and binaries (videos, audio, decks live on YouTube, not here)
+*.mp3
+*.wav
+*.mp4
+*.mov
+*.pptx
+*.zip
+
+# Database dumps
+*.dump
+*.sqlite
+*.sqlite3

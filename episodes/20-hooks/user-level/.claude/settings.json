@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          { "type": "command", "command": "notify-send 'Claude Code' 'Claude Code needs your approval'" }
+        ]
+      }
+    ]
+  }
+}

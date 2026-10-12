@@ -1,0 +1,26 @@
+diff --git a/docs/requirements.md b/docs/requirements.md
+index 3b8eed3..5626bbd 100644
+--- a/docs/requirements.md
++++ b/docs/requirements.md
+@@ -45,3 +45,8 @@ ## Out of scope for v1
+ 
+ ## Done means
+ A requirement is done when its spec is archived into openspec/specs, its tests pass in CI, and its pull request is reviewed and merged.
++
++## Decisions
++D1 Search covers subjects and public replies only. Internal notes are not searched (R6).
++D2 The last admin keeps the admin role. A role change that would leave no admin is refused (R12).
++D3 Customers do not edit a ticket after opening it, including its category. They can say so in a reply.
+diff --git a/tsconfig.json b/tsconfig.json
+index ca07426..7de4937 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -116,5 +116,7 @@
+         "resources/js/**/*.ts",
+         "resources/js/**/*.d.ts",
+         "resources/js/**/*.tsx"
+-    ]
++    ],
++    // Wayfinder generates these for Route::redirect; their "query" method is not in its Method type yet.
++    "exclude": ["resources/js/actions/Illuminate"]
+ }

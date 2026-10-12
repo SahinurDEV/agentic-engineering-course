@@ -1,0 +1,78 @@
+diff --git a/resources/js/components/app-sidebar.tsx b/resources/js/components/app-sidebar.tsx
+index a38aa1d..2d4d06f 100644
+--- a/resources/js/components/app-sidebar.tsx
++++ b/resources/js/components/app-sidebar.tsx
+@@ -1,5 +1,5 @@
+-import { Link } from '@inertiajs/react';
+-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
++import { Link, usePage } from '@inertiajs/react';
++import { BookOpen, FolderGit2, Inbox, LayoutGrid, Ticket } from 'lucide-react';
+ import AppLogo from '@/components/app-logo';
+ import { NavFooter } from '@/components/nav-footer';
+ import { NavMain } from '@/components/nav-main';
+@@ -13,16 +13,15 @@ import {
+     SidebarMenuButton,
+     SidebarMenuItem,
+ } from '@/components/ui/sidebar';
+-import { dashboard } from '@/routes';
++import { dashboard, inbox } from '@/routes';
++import { index as tickets } from '@/routes/tickets';
+ import type { NavItem } from '@/types';
+ 
+-const mainNavItems: NavItem[] = [
+-    {
+-        title: 'Dashboard',
+-        href: dashboard(),
+-        icon: LayoutGrid,
+-    },
+-];
++const dashboardItem: NavItem = {
++    title: 'Dashboard',
++    href: dashboard(),
++    icon: LayoutGrid,
++};
+ 
+ const footerNavItems: NavItem[] = [
+     {
+@@ -38,6 +37,17 @@ const footerNavItems: NavItem[] = [
+ ];
+ 
+ export function AppSidebar() {
++    const { auth } = usePage().props;
++    const mainNavItems: NavItem[] = [
++        dashboardItem,
++        ...(auth.can.openTicket
++            ? [{ title: 'My tickets', href: tickets(), icon: Ticket }]
++            : []),
++        ...(auth.can.viewInbox
++            ? [{ title: 'Inbox', href: inbox(), icon: Inbox }]
++            : []),
++    ];
++
+     return (
+         <Sidebar collapsible="icon" variant="inset">
+             <SidebarHeader>
+diff --git a/resources/js/types/auth.ts b/resources/js/types/auth.ts
+index 0a17aec..1913494 100644
+--- a/resources/js/types/auth.ts
++++ b/resources/js/types/auth.ts
+@@ -12,6 +12,10 @@ export type User = {
+ 
+ export type Auth = {
+     user: User;
++    can: {
++        openTicket: boolean;
++        viewInbox: boolean;
++    };
+ };
+ 
+ export type Passkey = {
+diff --git a/resources/js/types/index.ts b/resources/js/types/index.ts
+index b1f0ee6..ff7d2dc 100644
+--- a/resources/js/types/index.ts
++++ b/resources/js/types/index.ts
+@@ -1,3 +1,4 @@
+ export type * from './auth';
+ export type * from './navigation';
++export type * from './tickets';
+ export type * from './ui';

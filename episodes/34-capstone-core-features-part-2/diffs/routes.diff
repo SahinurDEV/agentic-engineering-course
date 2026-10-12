@@ -1,0 +1,52 @@
+diff --git a/routes/web.php b/routes/web.php
+index da7ee87..e3dcb3a 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,9 +1,15 @@
+ <?php
+ 
++use App\Http\Controllers\Admin\CategoryController;
++use App\Http\Controllers\Admin\UserController;
+ use App\Http\Controllers\InboxController;
++use App\Http\Controllers\NoteController;
+ use App\Http\Controllers\ReplyController;
+ use App\Http\Controllers\TicketController;
++use App\Http\Controllers\TicketUpdateController;
++use App\Models\Category;
+ use App\Models\Ticket;
++use App\Models\User;
+ use Illuminate\Support\Facades\Route;
+ 
+ Route::inertia('/', 'welcome')->name('home');
+@@ -18,11 +24,31 @@
+         ->can('create', Ticket::class)->name('tickets.store');
+     Route::get('tickets/{ticket}', [TicketController::class, 'show'])
+         ->can('view', 'ticket')->name('tickets.show');
++    Route::patch('tickets/{ticket}', TicketUpdateController::class)
++        ->can('update', 'ticket')->name('tickets.update');
+     Route::post('tickets/{ticket}/replies', [ReplyController::class, 'store'])
+         ->can('reply', 'ticket')->name('tickets.replies.store');
++    Route::post('tickets/{ticket}/notes', [NoteController::class, 'store'])
++        ->can('addNote', 'ticket')->name('tickets.notes.store');
+ 
+     Route::get('inbox', InboxController::class)
+         ->can('viewAny', Ticket::class)->name('inbox');
++
++    Route::prefix('admin')->name('admin.')->group(function () {
++        Route::get('categories', [CategoryController::class, 'index'])
++            ->can('viewAny', Category::class)->name('categories.index');
++        Route::post('categories', [CategoryController::class, 'store'])
++            ->can('create', Category::class)->name('categories.store');
++        Route::patch('categories/{category}', [CategoryController::class, 'update'])
++            ->can('update', 'category')->name('categories.update');
++        Route::post('categories/{category}/archive', [CategoryController::class, 'archive'])
++            ->can('update', 'category')->name('categories.archive');
++
++        Route::get('users', [UserController::class, 'index'])
++            ->can('viewAny', User::class)->name('users.index');
++        Route::patch('users/{user}/role', [UserController::class, 'updateRole'])
++            ->can('updateRole', 'user')->name('users.role');
++    });
+ });
+ 
+ require __DIR__.'/settings.php';
